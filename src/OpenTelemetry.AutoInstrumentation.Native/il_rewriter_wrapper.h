@@ -27,6 +27,7 @@ public:
     ILInstr* LoadNull() const;
     void LoadInt64(INT64 value) const;
     void LoadInt32(INT32 value) const;
+    ILInstr* LoadString(mdString token) const;
     ILInstr* LoadArgument(UINT16 index) const;
     ILInstr* LoadArgumentRef(UINT16 index) const;
     void Cast(mdTypeRef type_ref) const;

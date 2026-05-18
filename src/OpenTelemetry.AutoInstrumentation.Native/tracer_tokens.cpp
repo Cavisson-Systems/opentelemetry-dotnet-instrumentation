@@ -54,17 +54,19 @@ HRESULT TracerTokens::WriteBeginMethodWithArgumentsArray(void*           rewrite
         unsigned callTargetStateBuffer;
         auto     callTargetStateSize = CorSigCompressToken(callTargetStateTypeRef, &callTargetStateBuffer);
 
-        auto          signatureLength = 8 + callTargetStateSize;
+        auto          signatureLength = 9 + callTargetStateSize;
         COR_SIGNATURE signature[signatureBufferSize];
         unsigned      offset = 0;
 
         signature[offset++] = IMAGE_CEE_CS_CALLCONV_GENERIC;
         signature[offset++] = 0x02;
-        signature[offset++] = 0x02;
+        signature[offset++] = 0x03;
 
         signature[offset++] = ELEMENT_TYPE_VALUETYPE;
         memcpy(&signature[offset], &callTargetStateBuffer, callTargetStateSize);
         offset += callTargetStateSize;
+
+        signature[offset++] = ELEMENT_TYPE_STRING;
 
         signature[offset++] = ELEMENT_TYPE_MVAR;
         signature[offset++] = 0x01;
@@ -197,22 +199,24 @@ HRESULT TracerTokens::WriteBeginMethod(void*                             rewrite
         unsigned long signatureLength;
         if (enable_by_ref_instrumentation)
         {
-            signatureLength = 6 + (numArguments * 3) + callTargetStateSize;
+            signatureLength = 7 + (numArguments * 3) + callTargetStateSize;
         }
         else
         {
-            signatureLength = 6 + (numArguments * 2) + callTargetStateSize;
+            signatureLength = 7 + (numArguments * 2) + callTargetStateSize;
         }
         COR_SIGNATURE signature[signatureBufferSize];
         unsigned      offset = 0;
 
         signature[offset++] = IMAGE_CEE_CS_CALLCONV_GENERIC;
         signature[offset++] = 0x02 + numArguments;
-        signature[offset++] = 0x01 + numArguments;
+        signature[offset++] = 0x02 + numArguments;
 
         signature[offset++] = ELEMENT_TYPE_VALUETYPE;
         memcpy(&signature[offset], &callTargetStateBuffer, callTargetStateSize);
         offset += callTargetStateSize;
+
+        signature[offset++] = ELEMENT_TYPE_STRING;
 
         signature[offset++] = ELEMENT_TYPE_MVAR;
         signature[offset++] = 0x01;

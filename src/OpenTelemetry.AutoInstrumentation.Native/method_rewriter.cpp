@@ -114,6 +114,7 @@ HRESULT TracerMethodRewriter::Rewrite(RejitHandlerModule* moduleHandler, RejitHa
     int                               numArgs    = caller->method_signature.NumberOfArguments();
     auto                              metaEmit   = module_metadata.metadata_emit;
     auto                              metaImport = module_metadata.metadata_import;
+    mdString                          methodNameToken = mdStringNil;
 
     // *** Get reference to the integration type
     mdTypeRef integration_type_ref = mdTypeRefNil;
@@ -179,9 +180,36 @@ HRESULT TracerMethodRewriter::Rewrite(RejitHandlerModule* moduleHandler, RejitHa
                                               &callTargetReturnIndex, &returnValueIndex, &callTargetStateToken,
                                               &exceptionToken, &callTargetReturnToken, &firstInstruction);
 
+    // Precompute full method name token for OnMethodBegin (TypeName.MethodName).
+    {
+        const auto fullMethodName = caller->type.name + WStr(".") + caller->name;
+        auto       hrString = metaEmit->DefineUserString(fullMethodName.c_str(), (ULONG) fullMethodName.size(),
+                                                         &methodNameToken);
+        if (FAILED(hrString))
+        {
+            Logger::Warn("CallTarget_RewriterCallback(): failed to define method name string token.");
+            // Fallback to empty string
+            hrString = metaEmit->DefineUserString(WStr(""), 0, &methodNameToken);
+            if (FAILED(hrString))
+            {
+                methodNameToken = mdStringNil;
+            }
+        }
+    }
+
     // ***
     // BEGIN METHOD PART
     // ***
+
+    // *** Load method name into the stack (first argument to BeginMethod)
+    if (methodNameToken != mdStringNil)
+    {
+        reWriterWrapper.LoadString(methodNameToken);
+    }
+    else
+    {
+        reWriterWrapper.LoadNull();
+    }
 
     // *** Load instance into the stack (if not static)
     if (isStatic)

@@ -42,5 +42,9 @@ internal static class IntegrationOptions<TIntegration, TTarget>
                 _disableIntegration = true;
             }
         }
+        else
+        {
+            throw exception;
+        }
     }
 }

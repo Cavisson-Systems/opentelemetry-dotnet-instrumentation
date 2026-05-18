@@ -68,6 +68,15 @@ void ILRewriterWrapper::LoadInt32(const INT32 value) const
     m_ILRewriter->InsertBefore(m_ILInstr, pNewInstr);
 }
 
+ILInstr* ILRewriterWrapper::LoadString(const mdString token) const
+{
+    ILInstr* pNewInstr  = m_ILRewriter->NewILInstr();
+    pNewInstr->m_opcode = CEE_LDSTR;
+    pNewInstr->m_Arg32  = token;
+    m_ILRewriter->InsertBefore(m_ILInstr, pNewInstr);
+    return pNewInstr;
+}
+
 ILInstr* ILRewriterWrapper::LoadArgument(const UINT16 index) const
 {
     static const std::vector<OPCODE> opcodes = {

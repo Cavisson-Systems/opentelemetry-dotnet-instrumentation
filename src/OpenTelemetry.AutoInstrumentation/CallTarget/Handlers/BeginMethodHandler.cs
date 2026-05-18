@@ -32,15 +32,15 @@ internal static class BeginMethodHandler<TIntegration, TTarget>
         }
         finally
         {
-            _invokeDelegate ??= instance => CallTargetState.GetDefault();
+            _invokeDelegate ??= (methodName, instance) => CallTargetState.GetDefault();
         }
     }
 
-    internal delegate CallTargetState InvokeDelegate(TTarget instance);
+    internal delegate CallTargetState InvokeDelegate(string methodName, TTarget instance);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static CallTargetState Invoke(TTarget instance)
+    internal static CallTargetState Invoke(string methodName, TTarget instance)
     {
-        return new CallTargetState(Activity.Current, _invokeDelegate(instance));
+        return new CallTargetState(Activity.Current, _invokeDelegate(methodName, instance));
     }
 }

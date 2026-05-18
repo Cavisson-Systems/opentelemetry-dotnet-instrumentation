@@ -60,22 +60,26 @@ internal class IntegrationMapper
         }
 
         var onMethodBeginParameters = onMethodBeginMethodInfo.GetParameters();
-        if (onMethodBeginParameters.Length < argumentsTypes.Length)
+        var hasMethodNameParameter = onMethodBeginParameters.Length > 0 && onMethodBeginParameters[0].ParameterType == typeof(string);
+        var methodNameParameterOffset = hasMethodNameParameter ? 1 : 0;
+
+        if (onMethodBeginParameters.Length < argumentsTypes.Length + methodNameParameterOffset)
         {
             ThrowHelper.ThrowArgumentException($"The method: {BeginMethodName} with {onMethodBeginParameters.Length} parameters in type: {integrationType.FullName} has less parameters than required.");
         }
-        else if (onMethodBeginParameters.Length > argumentsTypes.Length + 1)
+        else if (onMethodBeginParameters.Length > argumentsTypes.Length + methodNameParameterOffset + 1)
         {
             ThrowHelper.ThrowArgumentException($"The method: {BeginMethodName} with {onMethodBeginParameters.Length} parameters in type: {integrationType.FullName} has more parameters than required.");
         }
-        else if (onMethodBeginParameters.Length != argumentsTypes.Length && onMethodBeginParameters[0].ParameterType != genericArgumentsTypes[0])
+        else if (onMethodBeginParameters.Length == argumentsTypes.Length + methodNameParameterOffset + 1 &&
+                 onMethodBeginParameters[methodNameParameterOffset].ParameterType != genericArgumentsTypes[0])
         {
             ThrowHelper.ThrowArgumentException($"The first generic argument for method: {BeginMethodName} in type: {integrationType.FullName} must be the same as the first parameter for the instance value.");
         }
 
         List<Type> callGenericTypes = [];
 
-        var mustLoadInstance = onMethodBeginParameters.Length != argumentsTypes.Length;
+        var mustLoadInstance = onMethodBeginParameters.Length == argumentsTypes.Length + methodNameParameterOffset + 1;
         var instanceGenericType = genericArgumentsTypes[0];
         var instanceGenericConstraint = instanceGenericType.GetGenericParameterConstraints().FirstOrDefault();
         Type? instanceProxyType = null;
@@ -93,16 +97,22 @@ internal class IntegrationMapper
         var callMethod = new DynamicMethod(
             $"{onMethodBeginMethodInfo.DeclaringType?.Name}.{onMethodBeginMethodInfo.Name}",
             typeof(CallTargetState),
-            new Type[] { targetType }.Concat(argumentsTypes),
+            new Type[] { typeof(string), targetType }.Concat(argumentsTypes),
             onMethodBeginMethodInfo.Module,
             true);
 
         var ilWriter = callMethod.GetILGenerator();
 
+        // Load method name if required by integration
+        if (hasMethodNameParameter)
+        {
+            ilWriter.Emit(OpCodes.Ldarg_0);
+        }
+
         // Load the instance if is needed
         if (mustLoadInstance)
         {
-            ilWriter.Emit(OpCodes.Ldarg_0);
+            ilWriter.Emit(OpCodes.Ldarg_1);
 
             if (instanceGenericConstraint != null)
             {
@@ -111,9 +121,11 @@ internal class IntegrationMapper
         }
 
         // Load arguments
-        for (var i = mustLoadInstance ? 1 : 0; i < onMethodBeginParameters.Length; i++)
+        var beginArgumentIndex = methodNameParameterOffset + (mustLoadInstance ? 1 : 0);
+        for (var i = beginArgumentIndex; i < onMethodBeginParameters.Length; i++)
         {
-            var sourceParameterType = argumentsTypes[mustLoadInstance ? i - 1 : i];
+            var argumentIndex = i - beginArgumentIndex;
+            var sourceParameterType = argumentsTypes[argumentIndex];
             var targetParameterType = onMethodBeginParameters[i].ParameterType;
             Type? targetParameterTypeConstraint = null;
             Type? parameterProxyType = null;
@@ -160,7 +172,7 @@ internal class IntegrationMapper
 
             if (!targetParameterType.IsByRef)
             {
-                WriteLoadArgument(ilWriter, i, mustLoadInstance);
+                WriteLoadArgument(ilWriter, argumentIndex, baseOffset: 2);
                 sourceParameterType = sourceParameterType.IsByRef ? sourceParameterType.GetElementType()! : sourceParameterType;
                 ilWriter.Emit(OpCodes.Ldobj, sourceParameterType);
 
@@ -171,7 +183,7 @@ internal class IntegrationMapper
             }
             else if (parameterProxyType == null)
             {
-                WriteLoadArgument(ilWriter, i, mustLoadInstance);
+                WriteLoadArgument(ilWriter, argumentIndex, baseOffset: 2);
             }
             else
             {
@@ -233,9 +245,15 @@ internal class IntegrationMapper
 
         var onMethodBeginParameters = onMethodBeginMethodInfo.GetParameters();
 
+	var hasMethodNameParameter =
+        onMethodBeginParameters.Length > 0 &&
+        onMethodBeginParameters[0].ParameterType == typeof(string);
+        var methodNameParameterOffset = hasMethodNameParameter ? 1 : 0;
         List<Type> callGenericTypes = [];
 
-        var mustLoadInstance = onMethodBeginParameters[0].ParameterType.IsGenericParameter && onMethodBeginParameters[0].ParameterType.GenericParameterPosition == 0;
+        var mustLoadInstance = onMethodBeginParameters.Length > methodNameParameterOffset &&
+                               onMethodBeginParameters[methodNameParameterOffset].ParameterType.IsGenericParameter &&
+                               onMethodBeginParameters[methodNameParameterOffset].ParameterType.GenericParameterPosition == 0;
         var instanceGenericType = genericArgumentsTypes[0];
         var instanceGenericConstraint = instanceGenericType.GetGenericParameterConstraints().FirstOrDefault();
         Type? instanceProxyType = null;
@@ -253,16 +271,22 @@ internal class IntegrationMapper
         var callMethod = new DynamicMethod(
             $"{onMethodBeginMethodInfo.DeclaringType?.Name}.{onMethodBeginMethodInfo.Name}",
             typeof(CallTargetState),
-            [targetType, typeof(object[])],
+            [typeof(string), targetType, typeof(object[])],
             onMethodBeginMethodInfo.Module,
             true);
 
         var ilWriter = callMethod.GetILGenerator();
 
+        // Load method name if required by integration
+        if (hasMethodNameParameter)
+        {
+            ilWriter.Emit(OpCodes.Ldarg_0);
+        }
+
         // Load the instance if is needed
         if (mustLoadInstance)
         {
-            ilWriter.Emit(OpCodes.Ldarg_0);
+            ilWriter.Emit(OpCodes.Ldarg_1);
 
             if (instanceGenericConstraint != null)
             {
@@ -271,7 +295,8 @@ internal class IntegrationMapper
         }
 
         // Load arguments
-        for (var i = mustLoadInstance ? 1 : 0; i < onMethodBeginParameters.Length; i++)
+        var beginArgumentIndex = methodNameParameterOffset + (mustLoadInstance ? 1 : 0);
+        for (var i = beginArgumentIndex; i < onMethodBeginParameters.Length; i++)
         {
             var targetParameterType = onMethodBeginParameters[i].ParameterType;
             Type? targetParameterTypeConstraint = null;
@@ -292,8 +317,8 @@ internal class IntegrationMapper
                 }
             }
 
-            ilWriter.Emit(OpCodes.Ldarg_1);
-            WriteIntValue(ilWriter, i - (mustLoadInstance ? 1 : 0));
+            ilWriter.Emit(OpCodes.Ldarg_2);
+            WriteIntValue(ilWriter, i - beginArgumentIndex);
             ilWriter.Emit(OpCodes.Ldelem_Ref);
 
             if (targetParameterTypeConstraint != null)
@@ -837,12 +862,9 @@ internal class IntegrationMapper
         }
     }
 
-    private static void WriteLoadArgument(ILGenerator il, int index, bool isStatic)
+    private static void WriteLoadArgument(ILGenerator il, int index, int baseOffset)
     {
-        if (!isStatic)
-        {
-            index += 1;
-        }
+        index += baseOffset;
 
         switch (index)
         {
