@@ -42,9 +42,9 @@ internal static class IntegrationOptions<TIntegration, TTarget>
                 _disableIntegration = true;
             }
         }
-        else
+        else if (exception.GetType().Name == "HavocException")
         {
-            throw exception;
+           throw exception;
         }
     }
 }
