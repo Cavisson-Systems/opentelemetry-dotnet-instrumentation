@@ -251,12 +251,19 @@
       <_RemoteUri>$(GITHUB_SERVER_URL)/$(GITHUB_REPOSITORY)</_RemoteUri>
       <_LatestCommit>$(GITHUB_SHA)</_LatestCommit>
     </PropertyGroup>
-    <Exec Command="git config --get remote.origin.url" ConsoleToMsBuild="true" Condition=" '$(_RemoteUri)' == '' ">
+    <!-- Do not fail the build when the clone has no 'origin' remote or git is unavailable; SourceLink is optional. -->
+    <Exec Command="git config --get remote.origin.url" ConsoleToMsBuild="true" IgnoreExitCode="true" StandardOutputImportance="low" Condition=" '$(_RemoteUri)' == '' ">
       <Output TaskParameter="ConsoleOutput" PropertyName="_RemoteUri" />
+      <Output TaskParameter="ExitCode" PropertyName="_RemoteUriExitCode" />
     </Exec>
-    <Exec Command="git rev-parse HEAD" ConsoleToMsBuild="true" Condition=" '$(_LatestCommit)' == '' ">
+    <Exec Command="git rev-parse HEAD" ConsoleToMsBuild="true" IgnoreExitCode="true" StandardOutputImportance="low" Condition=" '$(_LatestCommit)' == '' ">
       <Output TaskParameter="ConsoleOutput" PropertyName="_LatestCommit" />
+      <Output TaskParameter="ExitCode" PropertyName="_LatestCommitExitCode" />
     </Exec>
+    <PropertyGroup>
+      <_RemoteUri Condition=" '$(_RemoteUriExitCode)' != '' and '$(_RemoteUriExitCode)' != '0' ">https://github.com/open-telemetry/opentelemetry-dotnet-instrumentation</_RemoteUri>
+      <_LatestCommit Condition=" '$(_LatestCommitExitCode)' != '' and '$(_LatestCommitExitCode)' != '0' ">main</_LatestCommit>
+    </PropertyGroup>
     <WriteLinesToFile File="$(SourceLink)" Overwrite="true" Lines="{&quot;documents&quot;: { &quot;$(_SourceLinkRoot)\\*&quot; : &quot;$(_RemoteUri.Replace(&quot;.git&quot;, &quot;&quot;).Replace(&quot;github.com&quot;, &quot;raw.githubusercontent.com&quot;))/$(_LatestCommit)/*&quot; }}" />
   </Target>
 </Project>
