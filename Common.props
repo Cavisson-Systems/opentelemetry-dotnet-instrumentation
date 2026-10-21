@@ -10,6 +10,11 @@
     <AnalysisLevel>latest-All</AnalysisLevel>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- OpenTelemetry.Resources.Host < 1.16.0-beta.2: PATH hijacking on macOS only. The fix requires OpenTelemetry 1.16+. Remove when OTel packages are bumped. https://github.com/advisories/GHSA-v8pv-4842-x354 -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v8pv-4842-x354" />
+  </ItemGroup>
+
   <!-- StyleCop -->
   <ItemGroup>
     <GlobalPackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" PrivateAssets="all" />
